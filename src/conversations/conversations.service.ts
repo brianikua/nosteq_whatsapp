@@ -71,4 +71,27 @@ export class ConversationsService {
     
     return this.conversationRepository.save(conversation);
   }
+
+  async findOrCreateByCustomer(customerId: number): Promise<Conversation> {
+    // Find existing conversation for this customer (most recent first)
+    let conversation = await this.conversationRepository.findOne({
+      where: { customerId },
+      order: { lastMessageAt: 'DESC' },
+      relations: ['customer'],
+    });
+
+    if (!conversation) {
+      // Create new conversation if none exists
+      conversation = await this.create(customerId);
+      // Load with relations
+      conversation = await this.findOne(conversation.id);
+    } else {
+      // Reuse existing conversation - ensure it's open and update timestamp
+      conversation.status = ConversationStatus.OPEN;
+      conversation.lastMessageAt = new Date();
+      await this.conversationRepository.save(conversation);
+    }
+
+    return conversation;
+  }
 }

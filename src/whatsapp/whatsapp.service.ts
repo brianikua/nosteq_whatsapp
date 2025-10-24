@@ -59,12 +59,14 @@ export class WhatsAppService {
         await this.customerRepository.save(customer);
       }
 
-      // Find or create conversation
+      // Find or create conversation - reuse existing conversation for same customer
       let conversation = await this.conversationRepository.findOne({
-        where: { customerId: customer.id, status: ConversationStatus.OPEN },
+        where: { customerId: customer.id },
+        order: { lastMessageAt: 'DESC' }, // Get the most recent conversation
       });
 
       if (!conversation) {
+        // Create new conversation only if none exists for this customer
         conversation = this.conversationRepository.create({
           customerId: customer.id,
           status: ConversationStatus.OPEN,
@@ -72,6 +74,8 @@ export class WhatsAppService {
         });
         await this.conversationRepository.save(conversation);
       } else {
+        // Reuse existing conversation - update status to OPEN and timestamp
+        conversation.status = ConversationStatus.OPEN;
         conversation.lastMessageAt = new Date();
         await this.conversationRepository.save(conversation);
       }
