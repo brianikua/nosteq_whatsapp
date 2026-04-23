@@ -10,7 +10,7 @@ export class ConversationsService {
     private conversationRepository: Repository<Conversation>,
   ) {}
 
-  async findAll(status?: ConversationStatus): Promise<Conversation[]> {
+  async findAll(status?: ConversationStatus, user?: any): Promise<Conversation[]> {
     const query: any = { 
       relations: ['customer', 'assignedUser'],
       order: { lastMessageAt: 'DESC' }
@@ -18,6 +18,17 @@ export class ConversationsService {
     
     if (status) {
       query.where = { status };
+    }
+
+    // Apply role-based filtering
+    if (user && user.role === 'agent') {
+      // Agents can only see conversations assigned to them or unassigned
+      const whereCondition = query.where || {};
+      whereCondition.assignedUserId = user.userId;
+      query.where = [
+        whereCondition,
+        { assignedUserId: null } // Also include unassigned conversations
+      ];
     }
 
     return this.conversationRepository.find(query);
@@ -31,14 +42,21 @@ export class ConversationsService {
     });
   }
 
-  async findOne(id: number): Promise<Conversation> {
+  async findOne(id: number, user?: any): Promise<Conversation> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
-      relations: ['customer', 'assignedUser', 'messages'],
+      relations: ['customer', 'assignedUser', 'messages', 'messages.user', 'messages.customer'],
     });
 
     if (!conversation) {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
+    }
+
+    // Check permissions for agents
+    if (user && user.role === 'agent') {
+      if (conversation.assignedUserId !== user.userId && conversation.assignedUserId !== null) {
+        throw new NotFoundException(`Conversation with ID ${id} not found`);
+      }
     }
 
     return conversation;

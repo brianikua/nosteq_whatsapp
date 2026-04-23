@@ -42,8 +42,8 @@ import {
   
     @Get('conversation/:conversationId')
     @HttpCode(HttpStatus.OK)
-    async findByConversation(@Param('conversationId') conversationId: string) {
-      return this.messagesService.findByConversation(+conversationId);
+    async findByConversation(@Param('conversationId') conversationId: string, @Request() req) {
+      return this.messagesService.findByConversation(+conversationId, req.user);
     }
   
     @Post('send')
@@ -136,6 +136,12 @@ import {
         conversationId ? +conversationId : undefined,
         req.user.userId
       );
+    }
+
+    @Get('debug/diagnostics')
+    @HttpCode(HttpStatus.OK)
+    async getMessageDiagnostics() {
+      return this.messagesService.getMessageDiagnostics();
     }
 
     @Get('debug/unread-diagnostics')

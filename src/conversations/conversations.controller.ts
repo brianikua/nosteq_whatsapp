@@ -9,7 +9,8 @@ import {
     UseGuards, 
     Request,
     HttpCode,
-    HttpStatus 
+    HttpStatus,
+    BadRequestException
   } from '@nestjs/common';
   import { ConversationsService } from './conversations.service';
   import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,8 +23,8 @@ import {
   
     @Get()
     @HttpCode(HttpStatus.OK)
-    async findAll(@Query('status') status?: ConversationStatus) {
-      return this.conversationsService.findAll(status);
+    async findAll(@Query('status') status?: ConversationStatus, @Request() req?: any) {
+      return this.conversationsService.findAll(status, req?.user);
     }
   
     @Get('my-conversations')
@@ -34,16 +35,21 @@ import {
   
     @Get(':id')
     @HttpCode(HttpStatus.OK)
-    async findOne(@Param('id') id: string) {
-      return this.conversationsService.findOne(+id);
+    async findOne(@Param('id') id: string, @Request() req) {
+      return this.conversationsService.findOne(+id, req.user);
     }
   
     @Patch(':id/assign')
     @HttpCode(HttpStatus.OK)
     async assignToUser(
       @Param('id') id: string, 
-      @Body() body: { userId: number }
+      @Body() body: { userId: number },
+      @Request() req
     ) {
+      // Only admins can assign conversations
+      if (req.user.role !== 'admin') {
+        throw new BadRequestException('Only administrators can assign conversations');
+      }
       return this.conversationsService.assignToUser(+id, body.userId);
     }
   

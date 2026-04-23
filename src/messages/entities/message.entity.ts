@@ -56,7 +56,7 @@ export class Message {
   @Index('idx_direction')
   direction: MessageDirection;
 
-  @Column({ type: 'text' })
+  @Column({ type: 'longtext' })
   content: string;
 
   @Column({ name: 'media_url', type: 'text', nullable: true })
@@ -93,6 +93,9 @@ export class Message {
   @ManyToOne(() => User, (user) => user.messages)
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  // Optional sender name for outbound replies from agents/admins
+  senderName?: string;
   
   get isRead(): boolean {
     return this.readAt !== null && this.readAt !== undefined;

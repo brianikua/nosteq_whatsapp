@@ -12,7 +12,8 @@ async function bootstrap() {
   app.use(urlencoded({ extended: true, limit: '50mb' }));
   
   const configService = app.get(ConfigService);
-  app.useStaticAssets('/home/simiyu/uploads', {
+  const uploadsPath = configService.get('UPLOADS_PATH') || './uploads';
+  app.useStaticAssets(uploadsPath, {
     prefix: '/uploads/',
   });
 
@@ -52,8 +53,6 @@ async function bootstrap() {
       forbidNonWhitelisted: false, // ✅ Changed from true to false
     }),
   );
-
-  app.setGlobalPrefix('api');
 
   const port = configService.get('PORT') || 3000;
   await app.listen(port);

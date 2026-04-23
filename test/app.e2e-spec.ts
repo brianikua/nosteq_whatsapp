@@ -22,4 +22,14 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect('Hello World!');
   });
+
+  it('/api (GET) - should return 404 since global prefix is not set', () => {
+    return request(app.getHttpServer())
+      .get('/api')
+      .expect(404);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
 });

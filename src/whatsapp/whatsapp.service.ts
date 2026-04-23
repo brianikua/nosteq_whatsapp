@@ -29,12 +29,15 @@ export class WhatsAppService {
 
   async handleIncomingMessage(webhookData: any) {
     try {
+      console.log('\ud83d\udd04 Processing incoming webhook:', JSON.stringify(webhookData).substring(0, 200) + '...');
+      
       const entry = webhookData.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
       const message = value?.messages?.[0];
 
       if (!message) {
+        console.log('\u26a0\ufe0f No message in webhook, skipping');
         return { success: true, message: 'No message to process' };
       }
 
@@ -42,19 +45,24 @@ export class WhatsAppService {
       const messageText = message.text?.body || '';
       const messageType = message.type;
 
+      console.log('\ud83d\udd04 Processing message from:', phoneNumber, 'Type:', messageType);
+
       // Find or create customer
       let customer = await this.customerRepository.findOne({
         where: { phoneNumber },
       });
 
       if (!customer) {
+        console.log('\ud83d\udd04 Creating new customer for:', phoneNumber);
         customer = this.customerRepository.create({
           phoneNumber,
           name: value.contacts?.[0]?.profile?.name || phoneNumber,
           lastMessageAt: new Date(),
         });
         await this.customerRepository.save(customer);
+        console.log('\u2705 Customer created with ID:', customer.id);
       } else {
+        console.log('\ud83d\udd04 Updating existing customer:', customer.id);
         customer.lastMessageAt = new Date();
         await this.customerRepository.save(customer);
       }
@@ -66,22 +74,23 @@ export class WhatsAppService {
       });
 
       if (!conversation) {
-        // Create new conversation only if none exists for this customer
+        console.log('\ud83d\udd04 Creating new conversation for customer:', customer.id);
         conversation = this.conversationRepository.create({
           customerId: customer.id,
           status: ConversationStatus.OPEN,
           lastMessageAt: new Date(),
         });
         await this.conversationRepository.save(conversation);
+        console.log('\u2705 Conversation created with ID:', conversation.id);
       } else {
-        // Reuse existing conversation - update status to OPEN and timestamp
+        console.log('\ud83d\udd04 Reusing conversation:', conversation.id);
         conversation.status = ConversationStatus.OPEN;
         conversation.lastMessageAt = new Date();
         await this.conversationRepository.save(conversation);
       }
 
-      // Save message
-      const newMessage = this.messageRepository.create({
+      // Save message with proper content preservation
+      const messageData = {
         conversationId: conversation.id,
         customerId: customer.id,
         direction: MessageDirection.INBOUND,
@@ -89,18 +98,33 @@ export class WhatsAppService {
         messageType: messageType as MessageType,
         whatsappMessageId: message.id,
         metadata: message,
+        status: MessageStatus.DELIVERED,
+      };
+
+      console.log('\ud83d\udcbe Saving incoming message:', { 
+        conversationId: messageData.conversationId,
+        customerId: messageData.customerId,
+        contentLength: messageData.content.length,
+        type: messageData.messageType
       });
 
-      await this.messageRepository.save(newMessage);
+      const newMessage = this.messageRepository.create(messageData);
+      const savedMessage = await this.messageRepository.save(newMessage);
+
+      console.log('\u2705 Message saved with ID:', savedMessage.id, 'Content length:', savedMessage.content?.length || 0);
+
+      if (!savedMessage.id) {
+        throw new Error('Message was not saved - no ID returned');
+      }
 
       return {
         success: true,
         customer,
         conversation,
-        message: newMessage,
+        message: savedMessage,
       };
     } catch (error) {
-      console.error('Error handling incoming message:', error);
+      console.error('\u274c Error handling incoming message:', error);
       throw new HttpException('Failed to process message', 500);
     }
   }
@@ -108,7 +132,7 @@ export class WhatsAppService {
   async sendMessage(phoneNumber: string, content: string, userId?: number) {
     try {
       console.log('WhatsApp API Request:', {
-        url: `${this.apiUrl}`,
+        url: `${this.apiUrl}/${this.phoneNumberId}/messages`,
         data: {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
@@ -126,7 +150,7 @@ export class WhatsAppService {
       });
 
       const response = await axios.post(
-        `${this.apiUrl}`,
+        `${this.apiUrl}/${this.phoneNumberId}/messages`,
         {
           messaging_product: 'whatsapp',
           recipient_type: 'individual',
@@ -212,7 +236,7 @@ export class WhatsAppService {
       }
 
       const response = await axios.post(
-        `${this.apiUrl}`,
+        `${this.apiUrl}/${this.phoneNumberId}/messages`,
         messagePayload,
         {
           headers: {
@@ -272,7 +296,7 @@ export class WhatsAppService {
       formData.append('type', mediaType);
 
       console.log('WhatsApp Media Upload Request:', {
-        url: `https://graph.facebook.com/v22.0/743418468864729/media`,
+        url: `${this.apiUrl}/${this.phoneNumberId}/media`,
         headers: {
           Authorization: `Bearer ${this.apiToken?.substring(0, 20)}...`,
           ...formData.getHeaders(),
@@ -281,7 +305,7 @@ export class WhatsAppService {
 
       // Upload to WhatsApp Media API
       const uploadResponse = await axios.post(
-        `https://graph.facebook.com/v22.0/743418468864729/media`,
+        `${this.apiUrl}/${this.phoneNumberId}/media`,
         formData,
         {
           headers: {
@@ -342,7 +366,7 @@ export class WhatsAppService {
 
   async markMessageAsRead(whatsappMessageId: string) {
     try {
-      const readEndpoint = `${this.apiUrl}`;
+      const readEndpoint = `${this.apiUrl}/${this.phoneNumberId}/messages`;
       
       console.log('WhatsApp Mark Read API Request:', {
         url: readEndpoint,
