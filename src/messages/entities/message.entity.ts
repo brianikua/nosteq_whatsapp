@@ -10,6 +10,10 @@ export enum MessageType {
   DOCUMENT = 'document',
   AUDIO = 'audio',
   TEMPLATE = 'template',
+  LOCATION = 'location',
+  CONTACTS = 'contacts',
+  REACTION = 'reaction',
+  STICKER = 'sticker',
 }
 
 export enum MessageDirection {

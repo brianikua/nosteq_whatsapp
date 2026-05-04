@@ -14,6 +14,9 @@ import { Message } from './messages/entities/message.entity';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import { TemplatesModule } from './templates/templates.module';
 import { Template } from './templates/entities/template.entity';
+import { AutoRepliesModule } from './auto-replies/auto-replies.module';
+import { AutoReply } from './auto-replies/entities/auto-reply.entity';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -30,7 +33,7 @@ import { Template } from './templates/entities/template.entity';
         username: configService.get('DB_USERNAME', 'root'),
         password: configService.get('DB_PASSWORD', ''),
         database: configService.get('DB_DATABASE', 'whatsapp_gateway'),
-        entities: [User, Customer, Conversation, Message, Template],
+        entities: [User, Customer, Conversation, Message, Template, AutoReply],
         synchronize: configService.get('NODE_ENV') === 'development', // Set to false in production
         logging: configService.get('NODE_ENV') === 'development',
         charset: 'utf8mb4',
@@ -45,7 +48,8 @@ import { Template } from './templates/entities/template.entity';
     MessagesModule,
     WhatsAppModule,
     UploadModule,
-    TemplatesModule
+    TemplatesModule,
+    AutoRepliesModule,
   ],
 })
 export class AppModule {}

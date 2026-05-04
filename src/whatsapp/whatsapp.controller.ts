@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, HttpCode, Headers } from '@nestjs/common';
 import { WhatsAppService } from './whatsapp.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -28,11 +28,14 @@ export class WhatsAppController {
   // WhatsApp webhook receiver
   @Post()
   @HttpCode(200)
-  async handleWebhook(@Body() body: any) {
+  async handleWebhook(
+    @Body() body: any,
+    @Headers('x-hub-signature-256') signature?: string,
+  ) {
     console.log('Webhook received:', JSON.stringify(body, null, 2));
     
     if (body.object === 'whatsapp_business_account') {
-      await this.whatsappService.handleIncomingMessage(body);
+      await this.whatsappService.handleIncomingMessage(body, signature);
       return { status: 'success' };
     }
     
